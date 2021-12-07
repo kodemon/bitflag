@@ -1,54 +1,73 @@
-import { FLAGS } from "../Constants/Flags";
-import { AccessLevel, AccessRules } from "../Types/AccessProfile";
+type Privacy = Record<string, number>;
+type Flags = Record<string, number>;
 
-export abstract class AccessProfile<Schema extends Record<string, unknown>, Rules extends AccessRules<Schema> = AccessRules<Schema>> {
-  public readonly access: Rules;
+export abstract class AccessProfile<F extends Flags, P extends Privacy> {
+  public readonly flags: F;
+  public readonly privacy: P;
 
-  constructor(access: Rules) {
-    this.access = access;
+  constructor(flags: F, privacy: P) {
+    this.flags = flags;
+    this.privacy = privacy;
   }
 
   /**
-   * Set access level for the given field.
+   * Check if given flag has been set under the residing privacy key.
+   *
+   * @example
+   *
+   * ```
+   * profile.has("friends", ["email"]); // check if friends can see email
+   * ```
+   *
    */
-  public set(field: keyof Rules, level: AccessLevel) {
-    (this.access as any)[field] = this.getLevel(level);
+  public has(privacy: keyof P, flag: keyof F) {
+    return (this.privacy[privacy] & this.flags[flag]) === this.flags[flag];
+  }
+
+  /**
+   * Add list of flags to the list under the residing privacy key.
+   *
+   * @example
+   *
+   * ```
+   * profile.add("friends", ["name"]); // friends can now see name
+   * ```
+   *
+   */
+  public add(privacy: keyof P, flags: (keyof F)[]) {
+    for (const flag of flags) {
+      (this.privacy as any)[privacy] |= this.flags[flag];
+    }
     return this;
   }
 
   /**
-   * Filter document fields based on the provided relationship level.
+   * Remove list of flags from the list under the residing privacy key.
+   *
+   * @example
+   *
+   * ```
+   * profile.del("friends"; ["email"]); // friends can no longer see email
+   * ````
+   *
    */
-  public filter(document: Schema, level: AccessLevel) {
-    const data: any = {};
-    for (const key in document) {
-      if (document[key] !== undefined && this.access[key] !== undefined && this.check(this.access[key], level)) {
-        data[key] = document[key];
+  public del(privacy: keyof P, flags: (keyof F)[]) {
+    for (const flag of flags) {
+      (this.privacy as any)[privacy] &= ~this.flags[flag];
+    }
+    return this;
+  }
+
+  /**
+   * Filter provided document against the rules of residing privacy key.
+   */
+  public filter<D extends Record<keyof F, unknown>>(privacy: keyof P, document: D) {
+    const data: Partial<D> = { ...document };
+    for (const key in this.flags) {
+      if (this.has(privacy, key) === false) {
+        delete data[key];
       }
     }
     return data;
   }
-
-  /**
-   * Check if the field is accessible by the given relationship level.
-   */
-  public check(field: number, level: AccessLevel) {
-    return (field & FLAGS[level]) === FLAGS[level];
-  }
-
-  /**
-   * Convert the profile to serialized JSON object.
-   */
-  public toJSON() {
-    const obj: any = {};
-    for (const key in this.access) {
-      obj[key] = this.access[key].toString(2).padStart(8, "0");
-    }
-    return obj as Record<keyof Rules, string>;
-  }
-
-  /**
-   * Get flag combination for the given access level.
-   */
-  protected abstract getLevel(level: AccessLevel): number;
 }

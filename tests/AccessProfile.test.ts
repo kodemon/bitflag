@@ -2,17 +2,66 @@ import { UserAccessProfile } from "./mocks/UserAccessProfile";
 import { users } from "./mocks/Users";
 
 describe("Access Profile", () => {
-  it("should set first name to friends", () => {
-    const profile = UserAccessProfile.for("user-1").set("firstName", "public").set("lastName", "friends");
-    expect(profile.access.firstName).toBe(profile.getLevel("public"));
-    expect(profile.access.lastName).toBe(profile.getLevel("friends"));
-    expect(profile.access.email).toBe(profile.getLevel("private"));
+  describe("when add method is used", () => {
+    it("should add expected flags", () => {
+      const profile = getAccessProfile();
+
+      expect(profile.has("private", "firstName")).toBeTruthy();
+      expect(profile.has("private", "lastName")).toBeTruthy();
+      expect(profile.has("private", "email")).toBeTruthy();
+
+      expect(profile.has("friends", "firstName")).toBeTruthy();
+      expect(profile.has("friends", "lastName")).toBeFalsy();
+      expect(profile.has("friends", "email")).toBeTruthy();
+
+      expect(profile.has("public", "firstName")).toBeTruthy();
+      expect(profile.has("public", "lastName")).toBeFalsy();
+      expect(profile.has("public", "email")).toBeFalsy();
+    });
+
+    it("should filter expected flags", () => {
+      const profile = getAccessProfile();
+
+      expect(profile.filter("private", users["user-1"])).toEqual(users["user-1"]);
+      expect(profile.filter("friends", users["user-1"])).toEqual({ id: "user-1", firstName: "John", email: "john@doe.com" });
+      expect(profile.filter("public", users["user-1"])).toEqual({ id: "user-1", firstName: "John" });
+    });
   });
 
-  it("should should filter out inaccessible fields", () => {
-    const profile = UserAccessProfile.for("user-1").set("firstName", "public").set("lastName", "friends");
-    expect(profile.filter(users["user-1"], "public")).toEqual({ firstName: "John" });
-    expect(profile.filter(users["user-1"], "friends")).toEqual({ firstName: "John", lastName: "Doe" });
-    expect(profile.filter(users["user-1"], "private")).toEqual(users["user-1"]);
+  describe("when del method is used", () => {
+    it("should delete expected flags", () => {
+      const profile = getAccessProfile();
+
+      profile.del("friends", ["email"]);
+
+      expect(profile.has("private", "firstName")).toBeTruthy();
+      expect(profile.has("private", "lastName")).toBeTruthy();
+      expect(profile.has("private", "email")).toBeTruthy();
+
+      expect(profile.has("friends", "firstName")).toBeTruthy();
+      expect(profile.has("friends", "lastName")).toBeFalsy();
+      expect(profile.has("friends", "email")).toBeFalsy();
+
+      expect(profile.has("public", "firstName")).toBeTruthy();
+      expect(profile.has("public", "lastName")).toBeFalsy();
+      expect(profile.has("public", "email")).toBeFalsy();
+    });
+
+    it("should filter expected flags", () => {
+      const profile = getAccessProfile();
+
+      profile.del("friends", ["email"]);
+
+      expect(profile.filter("private", users["user-1"])).toEqual(users["user-1"]);
+      expect(profile.filter("friends", users["user-1"])).toEqual({ id: "user-1", firstName: "John" });
+      expect(profile.filter("public", users["user-1"])).toEqual({ id: "user-1", firstName: "John" });
+    });
   });
 });
+
+function getAccessProfile() {
+  return UserAccessProfile.for("user-1")
+    .add("private", ["firstName", "lastName", "email"])
+    .add("friends", ["firstName", "email"])
+    .add("public", ["firstName"]);
+}

@@ -1,7 +1,4 @@
-import { FLAGS } from "../../src/Constants/Flags";
 import { AccessProfile } from "../../src/Lib/AccessProfile";
-import type { AccessLevel, AccessRules } from "../../src/Types/AccessProfile";
-import type { User } from "./Users";
 
 /*
  |--------------------------------------------------------------------------------
@@ -9,18 +6,28 @@ import type { User } from "./Users";
  |--------------------------------------------------------------------------------
  */
 
-export const profiles: Record<string, AccessRules<User>> = {
+type UserPrivacy = {
+  private: number;
+  friends: number;
+  public: number;
+};
+
+const USER_FLAGS = {
+  firstName: 1 << 0,
+  lastName: 1 << 1,
+  email: 1 << 2
+};
+
+export const profiles: Record<string, UserPrivacy> = {
   "user-1": {
-    id: FLAGS.private,
-    firstName: FLAGS.private,
-    lastName: FLAGS.private,
-    email: FLAGS.private
+    private: 0,
+    friends: 0,
+    public: 0
   },
   "user-2": {
-    id: FLAGS.private,
-    firstName: FLAGS.private,
-    lastName: FLAGS.private,
-    email: FLAGS.private
+    private: 0,
+    friends: 0,
+    public: 0
   }
 };
 
@@ -30,26 +37,16 @@ export const profiles: Record<string, AccessRules<User>> = {
  |--------------------------------------------------------------------------------
  */
 
-export class UserAccessProfile extends AccessProfile<User> {
-  public static for(userId: string) {
-    const rules = profiles[userId];
-    if (!rules) {
-      throw new Error(`UserAccessProfile Violation: User ${userId} has no valid access profile.`);
-    }
-    return new UserAccessProfile(rules);
+export class UserAccessProfile extends AccessProfile<typeof USER_FLAGS, UserPrivacy> {
+  constructor(privacy: UserPrivacy) {
+    super(USER_FLAGS, { ...privacy });
   }
 
-  public getLevel(level: AccessLevel) {
-    switch (level) {
-      case "private": {
-        return FLAGS.private;
-      }
-      case "friends": {
-        return FLAGS.private | FLAGS.friends;
-      }
-      case "public": {
-        return FLAGS.private | FLAGS.friends | FLAGS.public;
-      }
+  public static for(userId: string) {
+    const profile = profiles[userId];
+    if (!profile) {
+      throw new Error(`UserAccessProfile Violation: User ${userId} has no valid access profile.`);
     }
+    return new UserAccessProfile(profile);
   }
 }
